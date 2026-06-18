@@ -589,10 +589,11 @@ function submitGradeData(){
 
 // ── PAGE: DB 보기 ──
 function renderDB(){
-  // 내가 올린 데이터가 있어야만 DB 볼 수 있음
-  const myScores=(LS.get('scores')||[]).filter(s=>s.authorId===currentUser.id);
-  const unlockedCount=Math.floor(myScores.length/2); // 2개 올릴 때마다 과목 1개 열람
-  const nextUnlock=((Math.floor(myScores.length/2)+1)*2); // 다음 잠금 해제까지 필요한 수
+  const users=LS.get('users')||{};
+  const scores=LS.get('scores')||[];
+  const myScores=scores.filter(s=>s.authorId===currentUser.id);
+  const unlockedCount=Math.floor(myScores.length/2);
+  const nextUnlock=((Math.floor(myScores.length/2)+1)*2);
   const needMore=nextUnlock-myScores.length;
 
   if(unlockedCount===0){
@@ -614,88 +615,74 @@ function renderDB(){
         <button class="btn btn-primary" style="height:44px;padding:0 32px;" onclick="goPage('grade')">데이터 올리러 가기 →</button>
       </div>`;
   }
-  const users=LS.get('users')||{};
-  const scores=LS.get('scores')||[];
 
-  // 열람 가능 과목 수 계산
+  // 열람 가능 과목
   const allSubjects=[...new Set(scores.map(s=>s.subject))];
-  const unlockedSubjects=allSubjects.slice(0,unlockedCount); // 올린 순서대로 unlockedCount개만 열람
-
-  // 과목 탭 목록 (열람 가능한 것만)
-  const subjects=unlockedSubjects;
-  if(!currentSubjectFilter||!subjects.includes(currentSubjectFilter)) currentSubjectFilter=subjects[0]||'';
-  const filtered=scores.filter(s=>s.subject===currentSubjectFilter);
-
-  const byGroup={};
-  filtered.forEach(s=>{
-    const key=s.subject+'__'+s.professor+'__'+(s.semester||'');
-    if(!byGroup[key])byGroup[key]={professor:s.professor,subject:s.subject,semester:s.semester,entries:[]};
-    byGroup[key].entries.push(s);
-  });
-
-  // 열람 가능 탭 + 잠긴 탭
+  const unlockedSubjects=allSubjects.slice(0,unlockedCount);
   const lockedSubjects=allSubjects.slice(unlockedCount);
-  const tabs=subjects.map(sub=>`<div class="subject-tab${sub===currentSubjectFilter?' active':''}" onclick="setSubjectFilter('${sub}')">${sub}</div>`).join('')
-    + lockedSubjects.map((_,i)=>`<div class="subject-tab" style="opacity:.4;cursor:not-allowed;" title="데이터 ${(unlockedCount+i+1)*2}개 올리면 열려요">🔒 +${(unlockedCount+i+1)*2-myScores.length}개</div>`).join('')
-    + `<div style="font-size:12px;color:var(--g400);padding:7px 8px;align-self:center;">내 데이터 ${myScores.length}개 · 열람 ${unlockedCount}과목</div>`;
 
-  const groupHtml=Object.values(byGroup).length?Object.values(byGroup).map(g=>{
-    const confirmed=g.entries.filter(e=>e.gradeConfirmed);
-    const avg=Math.round(g.entries.reduce((a,e)=>a+e.score,0)/g.entries.length*10)/10;
-    let cutHtml='';
+  // 현재 선택 과목 유효성 체크
+  if(!currentSubjectFilter||!unlockedSubjects.includes(currentSubjectFilter)){
+    currentSubjectFilter=unlockedSubjects[0]||'';
+  }
+
+  // 학기 목록 (선택된 과목 기준)
+  const subjectScores=scores.filter(s=>s.subject===currentSubjectFilter);
+  const allSemesters=[...new Set(subjectScores.map(s=>s.semester||'기타'))].sort().reverse();
+  if(!currentSemFilter||!allSemesters.includes(currentSemFilter)) currentSemFilter=allSemesters[0]||'';
+  const filtered=subjectScores.filter(s=>(s.semester||'기타')===currentSemFilter);
+
+  // 과목 드롭다운 옵션
+  const subjectOpts=unlockedSubjects.map(s=>`<option value="${s}"${s===currentSubjectFilter?' selected':''}>${s}</option>`).join('')
+    +lockedSubjects.map(s=>`<option value="" disabled>🔒 ${s}</option>`).join('');
+
+  // 학기 탭
+  const semTabs=allSemesters.map(sem=>`<div class="subject-tab${sem===currentSemFilter?' active':''}" onclick="setSemFilter('${sem}')">${sem}</div>`).join('');
+
+  // 데이터 카드
+  const confirmed=filtered.filter(e=>e.gradeConfirmed);
+  const avg=filtered.length?Math.round(filtered.reduce((a,e)=>a+e.score,0)/filtered.length*10)/10:0;
+  let cutHtml='';
+  if(confirmed.length>=2){
+    const gm={};
+    confirmed.forEach(e=>{if(!gm[e.grade]||e.score<gm[e.grade])gm[e.grade]=e.score;});
+    const chips=['A+','A','B+','B','C+','C'].filter(gr=>gm[gr]!==undefined).map(gr=>`<span class="cutline-chip">${gr} ${gm[gr]}점~</span>`).join('');
+    cutHtml=`<div style="font-size:11px;color:rgba(255,255,255,.65);margin-top:8px;margin-bottom:4px;">📊 커트라인 (${confirmed.length}명 확정)</div><div class="cutline-row">${chips}</div>`;
+  } else {
+    cutHtml=`<div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:8px;">📊 ${confirmed.length===0?'확정 등급 없음 — 등급 나오면 업데이트해 주세요 🙏':'데이터 수집 중...'}</div>`;
+  }
+
+  const rows=filtered.length?filtered.map(e=>{
+    let predHtml='';
     if(confirmed.length>=2){
       const gm={};
-      confirmed.forEach(e=>{if(!gm[e.grade]||e.score<gm[e.grade])gm[e.grade]=e.score;});
-      const chips=['A+','A','B+','B','C+','C'].filter(gr=>gm[gr]!==undefined).map(gr=>`<span class="cutline-chip">${gr} ${gm[gr]}점~</span>`).join('');
-      cutHtml=`<div style="font-size:11px;color:rgba(255,255,255,.65);margin-top:8px;margin-bottom:4px;">📊 커트라인 (${confirmed.length}명 확정)</div><div class="cutline-row">${chips}</div>`;
-    } else {
-      cutHtml=`<div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:8px;">📊 ${confirmed.length===0?'확정 등급 데이터 없음 — 올려주시면 커트라인이 생겨요!':'데이터 1개 수집 중...'}</div>`;
+      confirmed.forEach(ce=>{if(!gm[ce.grade]||ce.score<gm[ce.grade])gm[ce.grade]=ce.score;});
+      const order=['A+','A','B+','B','C+','C','D+','D','F'];
+      let pred='F';
+      for(const gr of order){if(gm[gr]!==undefined&&e.score>=gm[gr]){pred=gr;break;}}
+      predHtml=`<span class="en-pred">과거기준 ${pred}</span>`;
     }
-    const rows=g.entries.map(e=>{
-      let predHtml='';
-      if(confirmed.length>=2){
-        const gm={};
-        confirmed.forEach(ce=>{if(!gm[ce.grade]||ce.score<gm[ce.grade])gm[ce.grade]=ce.score;});
-        const order=['A+','A','B+','B','C+','C','D+','D','F'];
-        let pred='F';
-        for(const gr of order){if(gm[gr]!==undefined&&e.score>=gm[gr]){pred=gr;break;}}
-        predHtml=`<span class="en-pred">과거기준 ${pred}</span>`;
-      }
-      const u=users[e.authorId];
-      const anon='불문 '+(u?.year||'?');
-      const isMe=e.authorId===currentUser.id;
-      return `<div class="score-entry">
-        <div style="min-width:90px;"><span class="anon-tag">🌸 ${anon}</span></div>
-        <div class="en-score"><div class="en-score-num">${e.score}점</div><div class="en-score-lbl">총점</div></div>
-        <div style="font-size:16px;color:var(--g200);">→</div>
-        <div class="en-grade">
-          <div class="en-grade-letter" style="color:${e.gradeConfirmed?'var(--green)':'var(--g200)'};">${e.gradeConfirmed?e.grade:'?'}</div>
-          <div class="en-grade-gpa">${e.gradeConfirmed?e.gpa.toFixed(1)+'/4.3':'미발표'}</div>
-        </div>
-        <div style="display:flex;flex-wrap:wrap;gap:4px;flex:1;align-items:center;">
-          ${predHtml}
-          ${!e.gradeConfirmed?`<span class="en-unconf">등급 발표 전</span>`:''}
-        </div>
-        ${isMe?`<div style="display:flex;gap:6px;margin-left:auto;">
-          ${!e.gradeConfirmed?`<button class="btn btn-primary btn-sm" onclick="openConfirmGrade('${e.id}')">등급 입력</button>`:''}
-          <button class="btn btn-danger btn-sm" onclick="deleteScore('${e.id}')">삭제</button>
-        </div>`:''}
-      </div>`;
-    }).join('');
-    return `<div class="score-group">
-      <div class="score-group-header">
-        <div class="sghead-top">
-          <div>
-            <div class="sg-title">${g.subject} <span style="font-weight:500;font-size:13px;opacity:.8;">— ${g.professor} 교수님</span></div>
-            <div class="sg-meta">${g.semester||''} · ${g.entries.length}명 · 확정 ${confirmed.length}명</div>
-          </div>
-          <div class="sg-avg"><div class="sg-avg-num">${avg}점</div><div class="sg-avg-label">평균 총점</div></div>
-        </div>
-        ${cutHtml}
+    const u=users[e.authorId];
+    const anon='불문 '+(u?.year||'?');
+    const isMe=e.authorId===currentUser.id;
+    return `<div class="score-entry">
+      <div style="min-width:90px;"><span class="anon-tag">🌸 ${anon}</span></div>
+      <div class="en-score"><div class="en-score-num">${e.score}점</div><div class="en-score-lbl">총점</div></div>
+      <div style="font-size:16px;color:var(--g200);">→</div>
+      <div class="en-grade">
+        <div class="en-grade-letter" style="color:${e.gradeConfirmed?'var(--green)':'var(--g200)'};">${e.gradeConfirmed?e.grade:'?'}</div>
+        <div class="en-grade-gpa">${e.gradeConfirmed?e.gpa.toFixed(1)+'/4.3':'미발표'}</div>
       </div>
-      ${rows}
+      <div style="display:flex;flex-wrap:wrap;gap:4px;flex:1;align-items:center;">
+        ${predHtml}
+        ${!e.gradeConfirmed?`<span class="en-unconf">등급 발표 전</span>`:''}
+      </div>
+      ${isMe?`<div style="display:flex;gap:6px;margin-left:auto;">
+        ${!e.gradeConfirmed?`<button class="btn btn-primary btn-sm" onclick="openConfirmGrade('${e.id}')">등급 입력</button>`:''}
+        <button class="btn btn-danger btn-sm" onclick="deleteScore('${e.id}')">삭제</button>
+      </div>`:''}
     </div>`;
-  }).join(''):`<div class="empty-state"><div class="empty-icon">📊</div><div style="font-size:14px;font-weight:700;color:var(--g600);">데이터가 없어요</div><div style="font-size:13px;margin-top:4px;">첫 번째로 데이터를 올려보세요!</div></div>`;
+  }).join(''):`<div class="empty-state"><div class="empty-icon">📊</div><div style="font-size:14px;font-weight:700;color:var(--g600);">이 학기 데이터가 없어요</div></div>`;
 
   return `
     <div class="page-header">
@@ -703,12 +690,36 @@ function renderDB(){
       <div class="page-title">📊 과목별 성적 DB</div>
       <button class="btn btn-primary btn-sm" style="margin-left:auto;" onclick="goPage('grade')">+ 데이터 올리기</button>
     </div>
-    <div class="subject-tabs" id="subject-tabs">${tabs}</div>
-    <div id="db-groups">${groupHtml}`;
+
+    <div style="margin-bottom:14px;">
+      <div style="font-size:13px;font-weight:600;color:var(--g600);margin-bottom:6px;">과목 선택 <span style="font-size:11px;color:var(--g400);">(내 데이터 ${myScores.length}개 → ${unlockedCount}과목 열람 가능)</span></div>
+      <select class="select" id="subject-select" onchange="setSubjectFilter(this.value)" style="max-width:400px;">
+        ${subjectOpts}
+      </select>
+    </div>
+
+    <div class="subject-tabs" style="margin-bottom:16px;">${semTabs}</div>
+
+    <div class="score-group">
+      <div class="score-group-header">
+        <div class="sghead-top">
+          <div>
+            <div class="sg-title">${currentSubjectFilter}</div>
+            <div class="sg-meta">${currentSemFilter} · ${filtered.length}명 · 확정 ${confirmed.length}명</div>
+          </div>
+          ${filtered.length?`<div class="sg-avg"><div class="sg-avg-num">${avg}점</div><div class="sg-avg-label">평균 총점</div></div>`:''}
+        </div>
+        ${cutHtml}
+      </div>
+      ${rows}
+    </div>`;
 }
 
+
 function setSubjectFilter(sub){
+  if(!sub)return;
   currentSubjectFilter=sub;
+  currentSemFilter='';
   goPage('db');
 }
 
