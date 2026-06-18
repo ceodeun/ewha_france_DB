@@ -306,6 +306,7 @@ function seed(){
     {id:'s5',authorId:'u2',professor:'장인봉',subject:'프랑스어구조와활용',semester:'2026-1',score:92,grade:'A',gpa:4.0,gradeConfirmed:true,createdAt:'2026-06-11T10:00:00'},
     {id:'s6',authorId:'u3',professor:'장인봉',subject:'프랑스어구조와활용',semester:'2026-1',score:85,grade:'B+',gpa:3.5,gradeConfirmed:true,createdAt:'2026-06-11T11:00:00'},
     {id:'s7',authorId:'demo',professor:'장인봉',subject:'프랑스어구조와활용',semester:'2026-1',score:77,gradeConfirmed:false,createdAt:'2026-06-17T10:00:00'},
+    {id:'s8',authorId:'demo',professor:'최요환',subject:'프랑스문학사',semester:'2025-2',score:91,grade:'A',gpa:4.0,gradeConfirmed:true,createdAt:'2025-12-20T10:00:00'},
   ]);
   LS.set('seeded',true);
 }
@@ -597,23 +598,16 @@ function renderDB(){
   const needMore=nextUnlock-myScores.length;
 
   if(unlockedCount===0){
-    return `
-      <div class="page-header">
-        <button class="back-btn" onclick="goSituation()">←</button>
-        <div class="page-title">📊 과목별 성적 DB</div>
-      </div>
-      <div style="background:var(--white);border-radius:var(--r-xl);border:2px solid var(--green-mid);padding:36px 28px;text-align:center;margin-top:12px;">
-        <div style="font-size:48px;margin-bottom:16px;">🔒</div>
-        <div style="font-size:18px;font-weight:800;color:var(--green3);margin-bottom:8px;">데이터 ${needMore}개만 더 올리면 첫 과목이 열려요!</div>
-        <div style="font-size:14px;color:var(--g400);line-height:1.7;margin-bottom:20px;">
-          <strong>2개 올릴 때마다 과목 1개</strong>씩 열람 가능해요.<br>
-          지금 <strong style="color:var(--green);">${myScores.length}개</strong> 올렸어요!
-        </div>
-        <div style="display:flex;gap:6px;justify-content:center;margin-bottom:24px;">
-          ${[0,1].map(i=>`<div style="width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;background:${i<myScores.length?'var(--green)':'var(--g100)'};color:${i<myScores.length?'#fff':'var(--g400)'};">${i<myScores.length?'✓':'?'}</div>`).join('')}
-        </div>
-        <button class="btn btn-primary" style="height:44px;padding:0 32px;" onclick="goPage('grade')">데이터 올리러 가기 →</button>
-      </div>`;
+    const dot0 = myScores.length>0 ? '<div style="width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;background:var(--green);color:#fff;">✓</div>' : '<div style="width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;background:var(--g100);color:var(--g400);">?</div>';
+    const dot1 = '<div style="width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;background:var(--g100);color:var(--g400);">?</div>';
+    return '<div class="page-header"><button class="back-btn" onclick="goSituation()">←</button><div class="page-title">📊 과목별 성적 DB</div></div>'
+      + '<div style="background:var(--white);border-radius:var(--r-xl);border:2px solid var(--green-mid);padding:36px 28px;text-align:center;margin-top:12px;">'
+      + '<div style="font-size:48px;margin-bottom:16px;">🔒</div>'
+      + '<div style="font-size:18px;font-weight:800;color:var(--green3);margin-bottom:8px;">데이터 ' + needMore + '개만 더 올리면 첫 과목이 열려요!</div>'
+      + '<div style="font-size:14px;color:var(--g400);line-height:1.7;margin-bottom:20px;"><strong>2개 올릴 때마다 과목 1개</strong>씩 열람 가능해요.<br>지금 <strong style=\"color:var(--green);\">' + myScores.length + '개</strong> 올렸어요!</div>'
+      + '<div style="display:flex;gap:6px;justify-content:center;margin-bottom:24px;">' + dot0 + dot1 + '</div>'
+      + '<button class="btn btn-primary" style="height:44px;padding:0 32px;" onclick="goPage('grade')">데이터 올리러 가기 →</button>'
+      + '</div>';
   }
 
   // 열람 가능 과목
