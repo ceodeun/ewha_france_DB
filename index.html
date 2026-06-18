@@ -361,6 +361,27 @@ function goPage(type){
   document.getElementById('screen-situation').classList.add('hidden');
   document.getElementById('screen-page').classList.remove('hidden');
   const el=document.getElementById('page-content');
+
+  // 중간고사 계산기, 총점 예측은 확정 등급 데이터 3개 이상 올려야 사용 가능
+  if(type==='midterm'||type==='total'){
+    const myConfirmed=(LS.get('scores')||[]).filter(s=>s.authorId===currentUser.id&&s.gradeConfirmed);
+    if(myConfirmed.length<3){
+      const need=3-myConfirmed.length;
+      const dots=[0,1,2].map(i=>`<div style="width:44px;height:44px;border-radius:50%;background:${i<myConfirmed.length?'var(--green)':'var(--g100)'};color:${i<myConfirmed.length?'#fff':'var(--g400)'};display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;">${i<myConfirmed.length?'✓':'?'}</div>`).join('');
+      el.innerHTML = [
+        '<div class="page-header"><button class="back-btn" onclick="goSituation()">←</button><div class="page-title">'+(type==='midterm'?'📝 기말 필요 점수 계산기':'🔢 총점 예측')+'</div></div>',
+        '<div style="background:var(--white);border-radius:var(--r-xl);border:2px solid var(--green-mid);padding:36px 28px;text-align:center;margin-top:12px;">',
+        '<div style="font-size:48px;margin-bottom:16px;">🔒</div>',
+        '<div style="font-size:18px;font-weight:800;color:var(--green3);margin-bottom:8px;">등급 데이터 '+need+'개만 더 올리면 열려요!</div>',
+        '<div style="font-size:14px;color:var(--g400);line-height:1.7;margin-bottom:20px;"><strong>확정 등급 데이터 3개 이상</strong> 올려야 사용할 수 있어요.<br>지금 <strong style="color:var(--green);">'+myConfirmed.length+'개</strong> 올렸어요!</div>',
+        '<div style="display:flex;gap:6px;justify-content:center;margin-bottom:24px;">'+dots+'</div>',
+        '<button class="btn btn-primary" style="height:44px;padding:0 32px;" onclick="goPage(&quot;grade&quot;)">등급 데이터 올리러 가기 →</button>',
+        '</div>'
+      ].join('');
+      return;
+    }
+  }
+
   if(type==='midterm') el.innerHTML=renderMidterm();
   else if(type==='total') el.innerHTML=renderTotalScore();
   else if(type==='grade') el.innerHTML=renderAddGrade();
