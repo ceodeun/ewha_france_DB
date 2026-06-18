@@ -478,10 +478,13 @@ function onSubjectChange(){
     info.classList.add('hidden');
   } else if(sel.value){
     direct.classList.add('hidden');
-    const [subj,prof]=sel.value.split('|');
+    const parts=sel.value.split('|');
+    const subj=parts[0];
+    const prof=parts[1]||'';
     info.classList.remove('hidden');
-    info.textContent='✓ '+subj+' — '+prof+' 교수님';
-    info.dataset.subj=subj; info.dataset.prof=prof;
+    info.innerHTML='✓ <strong>'+subj+'</strong> — '+prof+' 교수님';
+    info.setAttribute('data-subj', subj);
+    info.setAttribute('data-prof', prof);
   } else {
     direct.classList.add('hidden');
     info.classList.add('hidden');
