@@ -589,12 +589,42 @@ function submitGradeData(){
 
 // ── PAGE: DB 보기 ──
 function renderDB(){
+  // 내가 올린 데이터가 있어야만 DB 볼 수 있음
+  const myScores=(LS.get('scores')||[]).filter(s=>s.authorId===currentUser.id);
+  const unlockedCount=Math.floor(myScores.length/2); // 2개 올릴 때마다 과목 1개 열람
+  const nextUnlock=((Math.floor(myScores.length/2)+1)*2); // 다음 잠금 해제까지 필요한 수
+  const needMore=nextUnlock-myScores.length;
+
+  if(unlockedCount===0){
+    return `
+      <div class="page-header">
+        <button class="back-btn" onclick="goSituation()">←</button>
+        <div class="page-title">📊 과목별 성적 DB</div>
+      </div>
+      <div style="background:var(--white);border-radius:var(--r-xl);border:2px solid var(--green-mid);padding:36px 28px;text-align:center;margin-top:12px;">
+        <div style="font-size:48px;margin-bottom:16px;">🔒</div>
+        <div style="font-size:18px;font-weight:800;color:var(--green3);margin-bottom:8px;">데이터 ${needMore}개만 더 올리면 첫 과목이 열려요!</div>
+        <div style="font-size:14px;color:var(--g400);line-height:1.7;margin-bottom:20px;">
+          <strong>2개 올릴 때마다 과목 1개</strong>씩 열람 가능해요.<br>
+          지금 <strong style="color:var(--green);">${myScores.length}개</strong> 올렸어요!
+        </div>
+        <div style="display:flex;gap:6px;justify-content:center;margin-bottom:24px;">
+          ${[0,1].map(i=>`<div style="width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;background:${i<myScores.length?'var(--green)':'var(--g100)'};color:${i<myScores.length?'#fff':'var(--g400)'};">${i<myScores.length?'✓':'?'}</div>`).join('')}
+        </div>
+        <button class="btn btn-primary" style="height:44px;padding:0 32px;" onclick="goPage('grade')">데이터 올리러 가기 →</button>
+      </div>`;
+  }
   const users=LS.get('users')||{};
   const scores=LS.get('scores')||[];
 
-  // 과목 탭 목록
-  const subjects=['전체',...new Set(scores.map(s=>s.subject))];
-  const filtered=currentSubjectFilter==='전체'?scores:scores.filter(s=>s.subject===currentSubjectFilter);
+  // 열람 가능 과목 수 계산
+  const allSubjects=[...new Set(scores.map(s=>s.subject))];
+  const unlockedSubjects=allSubjects.slice(0,unlockedCount); // 올린 순서대로 unlockedCount개만 열람
+
+  // 과목 탭 목록 (열람 가능한 것만)
+  const subjects=unlockedSubjects;
+  if(!currentSubjectFilter||!subjects.includes(currentSubjectFilter)) currentSubjectFilter=subjects[0]||'';
+  const filtered=scores.filter(s=>s.subject===currentSubjectFilter);
 
   const byGroup={};
   filtered.forEach(s=>{
@@ -603,7 +633,11 @@ function renderDB(){
     byGroup[key].entries.push(s);
   });
 
-  const tabs=subjects.map(sub=>`<div class="subject-tab${sub===currentSubjectFilter?' active':''}" onclick="setSubjectFilter('${sub}')">${sub}</div>`).join('');
+  // 열람 가능 탭 + 잠긴 탭
+  const lockedSubjects=allSubjects.slice(unlockedCount);
+  const tabs=subjects.map(sub=>`<div class="subject-tab${sub===currentSubjectFilter?' active':''}" onclick="setSubjectFilter('${sub}')">${sub}</div>`).join('')
+    + lockedSubjects.map((_,i)=>`<div class="subject-tab" style="opacity:.4;cursor:not-allowed;" title="데이터 ${(unlockedCount+i+1)*2}개 올리면 열려요">🔒 +${(unlockedCount+i+1)*2-myScores.length}개</div>`).join('')
+    + `<div style="font-size:12px;color:var(--g400);padding:7px 8px;align-self:center;">내 데이터 ${myScores.length}개 · 열람 ${unlockedCount}과목</div>`;
 
   const groupHtml=Object.values(byGroup).length?Object.values(byGroup).map(g=>{
     const confirmed=g.entries.filter(e=>e.gradeConfirmed);
